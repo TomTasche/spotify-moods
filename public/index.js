@@ -338,6 +338,8 @@ if (accessToken) {
         if (genre.indexOf(genreQuery) >= 0) {
           let tracks = tracksForArtist[artist.id]
           matchingTracks = matchingTracks.concat(tracks)
+
+          break
         }
       }
     }
