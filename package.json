@@ -8,10 +8,10 @@
     "start": "webpack && node server.js"
   },
   "devDependencies": {
-    "standard": "^9.0.2",
-    "webpack": "^2.3.2"
+    "standard": "^9.0.2"
   },
   "dependencies": {
-    "express": "^4.15.2"
+    "express": "^4.15.2",
+    "webpack": "^2.3.2"
   }
 }
