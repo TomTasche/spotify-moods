@@ -253,7 +253,7 @@ function updatePlaylistInternal (url, uris) {
 }
 
 function login () {
-  var redirectUri = 'http://localhost:8080/'
+  var redirectUri = 'https://spotify-moods.herokuapp.com/'
 
   var clientId = '7915aa4b66f84032b9c635f604e72a0a'
   var scope = 'user-read-private user-read-email playlist-modify-private user-library-read'
