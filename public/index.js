@@ -1,5 +1,7 @@
-var accessToken
 var spotifyQueue = []
+
+var accessToken
+var userId
 
 function login () {
   var redirectUri = 'http://localhost:8080/'
@@ -42,7 +44,7 @@ function fetchTracks (future, tracks, offset) {
   requestOptions.url = 'https://api.spotify.com/v1/me/tracks'
   requestOptions.data = requestData
 
-  authenticateRequest(requestOptions, accessToken)
+  authenticateRequest(requestOptions)
 
   var promise = spotifyRequest(requestOptions)
   promise.done(function (response) {
@@ -74,7 +76,7 @@ function fetchArtists (artistIds, future, artists, offset) {
   requestOptions.url = 'https://api.spotify.com/v1/artists'
   requestOptions.data = requestData
 
-  authenticateRequest(requestOptions, accessToken)
+  authenticateRequest(requestOptions)
 
   var promise = spotifyRequest(requestOptions)
   promise.done(function (response) {
@@ -91,7 +93,38 @@ function fetchArtists (artistIds, future, artists, offset) {
   return future.promise()
 }
 
-function authenticateRequest (requestOptions, accessToken) {
+function fetchAlbums (albumIds, future, albums, offset) {
+  future = future || $.Deferred()
+  albums = albums || []
+  offset = offset || 0
+
+  let newOffset = offset + 20
+
+  var requestData = {}
+  requestData.ids = albumIds.slice(offset, newOffset).join(',')
+
+  var requestOptions = {}
+  requestOptions.url = 'https://api.spotify.com/v1/albums'
+  requestOptions.data = requestData
+
+  authenticateRequest(requestOptions)
+
+  var promise = spotifyRequest(requestOptions)
+  promise.done(function (response) {
+    let newAlbums = response.albums
+    albums = albums.concat(newAlbums)
+
+    if (newOffset < albumIds.length) {
+      fetchAlbums(albumIds, future, albums, newOffset)
+    } else {
+      future.resolve(albums)
+    }
+  }).catch(future.reject)
+
+  return future.promise()
+}
+
+function authenticateRequest (requestOptions) {
   requestOptions.headers = requestOptions.headers || {}
   requestOptions.headers['Authorization'] = 'Bearer ' + accessToken
 }
@@ -148,29 +181,210 @@ function inspectQueue () {
   })
 }
 
-var params = getHashParams()
+function fetchUserId () {
+  var future = $.Deferred()
+
+  var requestOptions = {}
+  requestOptions.url = 'https://api.spotify.com/v1/me'
+  authenticateRequest(requestOptions)
+
+  var promise = spotifyRequest(requestOptions)
+  promise.done(function (response) {
+    let userId = response.id
+
+    future.resolve(userId)
+  }).catch(future.reject)
+
+  return future.promise()
+}
+
+function createPlaylist (name) {
+  var future = $.Deferred()
+
+  var data = {
+    public: false,
+    name: name
+  }
+
+  var requestOptions = {
+    method: 'POST',
+    url: 'https://api.spotify.com/v1/users/' + userId + '/playlists',
+    data: JSON.stringify(data)
+  }
+  authenticateRequest(requestOptions)
+
+  var promise = spotifyRequest(requestOptions)
+  promise.done(function (response) {
+    var playlistId = response.id
+
+    future.resolve(playlistId)
+  }).catch(future.reject)
+
+  return future.promise()
+}
+
+function updatePlaylist (playlistId, tracks) {
+  function updatePlaylistInternal (url, uris) {
+    var future = $.Deferred()
+
+    var data = {
+      uris: uris
+    }
+
+    var requestOptions = {
+      method: 'POST',
+      url: url,
+      data: JSON.stringify(data)
+    }
+    authenticateRequest(requestOptions)
+
+    var promise = spotifyRequest(requestOptions)
+    promise.done(future.resolve).catch(future.reject)
+
+    return future.promise()
+  }
+
+  var future = $.Deferred()
+
+  var uris = []
+  for (var i = 0; i < tracks.length; i++) {
+    var track = tracks[i]
+
+    uris.push(track.uri)
+  }
+
+  var requestUrl = 'https://api.spotify.com/v1/users/' + userId + '/playlists/' + playlistId + '/tracks'
+
+  var count = 0
+
+  function countDown () {
+    count--
+
+    if (count === 0) {
+      future.resolve()
+    }
+  }
+
+  while (uris.length) {
+    var urisStack = uris.splice(0, 100)
+
+    var promise = updatePlaylistInternal(requestUrl, urisStack)
+    promise.done(countDown).catch(countDown)
+
+    count++
+  }
+
+  return future.promise()
+}
+
+let params = getHashParams()
 accessToken = params.access_token
 if (accessToken) {
-  var promise = fetchTracks()
+  let genreQuery = null // e.g. 'house'
+  let dateQuery = '2010-01-01'
+
+  let tracksForArtist = {}
+  let tracksForAlbum = {}
+  let matchingTracks = []
+
+  var promise = fetchUserId()
+  promise = promise.then(function (userIdParameter) {
+    userId = userIdParameter
+  })
+
+  promise = promise.then(fetchTracks)
   promise = promise.then(function (tracks) {
-    let artistIds = {}
-
     for (var i = 0; i < tracks.length; i++) {
-      let track = tracks[i]
-      let artistId = track.track.artists[0].id
+      let track = tracks[i].track
 
-      artistIds[artistId] = true
+      let artistId = track.artists[0].id
+      let artistTracks = tracksForArtist[artistId]
+      if (!artistTracks) {
+        artistTracks = []
+        tracksForArtist[artistId] = artistTracks
+      }
+
+      artistTracks.push(track)
+
+      let albumId = track.album.id
+      let albumTracks = tracksForAlbum[albumId]
+      if (!albumTracks) {
+        albumTracks = []
+        tracksForAlbum[albumId] = albumTracks
+      }
+
+      albumTracks.push(track)
+    }
+  })
+
+  promise = promise.then(function () {
+    let artistIds = Object.keys(tracksForArtist)
+
+    let promise = fetchArtists(artistIds)
+    return promise
+  })
+  promise = promise.then(function (artists) {
+    if (!genreQuery) {
+      return
     }
 
-    return Object.keys(artistIds)
-  })
-  promise = promise.then(fetchArtists)
-  promise.then(function (artists) {
-    for (var i = 0; i < artists.length; i++) {
-      let artist = artists[i]
-      console.log('genres for artists ' + artist.name, artist.genres)
+    for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
+      let artist = artists[artistIndex]
+      let genres = artist.genres
+
+      for (let genreIndex = 0; genreIndex < genres.length; genreIndex++) {
+        let genre = genres[genreIndex]
+
+        if (genre.indexOf(genreQuery) >= 0) {
+          let tracks = tracksForArtist[artist.id]
+          matchingTracks = matchingTracks.concat(tracks)
+        }
+      }
     }
   })
+
+  promise = promise.then(function () {
+    let albumIds = Object.keys(tracksForAlbum)
+
+    let promise = fetchAlbums(albumIds)
+    return promise
+  })
+  promise = promise.then(function (albums) {
+    if (!dateQuery) {
+      return
+    }
+
+    let yearQuery = parseInt(dateQuery)
+
+    for (let i = 0; i < albums.length; i++) {
+      let album = albums[i]
+
+      let releaseDate = album.release_date
+      let releaseYear = parseInt(releaseDate.split('-')[0])
+      if (releaseYear < yearQuery) {
+        let tracks = tracksForAlbum[album.id]
+        matchingTracks = matchingTracks.concat(tracks)
+      }
+    }
+  })
+
+  let queryDescription = []
+  if (genreQuery) {
+    queryDescription.push(genreQuery)
+  }
+  if (dateQuery) {
+    queryDescription.push(dateQuery)
+  }
+
+  let playlistName = 'spotify-mood: ' + queryDescription.join(', ')
+
+  promise = promise.then(createPlaylist.bind(this, playlistName))
+  promise = promise.then(function (playlistId) {
+    let promise = updatePlaylist(playlistId, matchingTracks)
+    return promise
+  })
+
+  promise.then(console.log.bind(this, 'done'))
 } else {
   login()
 }
