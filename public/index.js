@@ -214,11 +214,7 @@ function createPlaylist (name) {
   authenticateRequest(requestOptions)
 
   var promise = spotifyRequest(requestOptions)
-  promise.done(function (response) {
-    var playlistId = response.id
-
-    future.resolve(playlistId)
-  }).catch(future.reject)
+  promise.done(future.resolve).catch(future.reject)
 
   return future.promise()
 }
@@ -277,15 +273,9 @@ function updatePlaylist (playlistId, tracks) {
   return future.promise()
 }
 
-let params = getHashParams()
-accessToken = params.access_token
-if (accessToken) {
-  let genreQuery = null // e.g. 'house'
-  let dateQuery = '2010-01-01'
-
+function generate (genreQuery, dateQuery) {
   let tracksForArtist = {}
   let tracksForAlbum = {}
-  let matchingTracks = []
 
   var promise = fetchUserId()
   promise = promise.then(function (userIdParameter) {
@@ -316,6 +306,8 @@ if (accessToken) {
       albumTracks.push(track)
     }
   })
+
+  let matchingTracks = []
 
   promise = promise.then(function () {
     let artistIds = Object.keys(tracksForArtist)
@@ -379,14 +371,54 @@ if (accessToken) {
   }
 
   let playlistName = 'spotify-mood: ' + queryDescription.join(', ')
+  let playlistUrl
 
   promise = promise.then(createPlaylist.bind(this, playlistName))
-  promise = promise.then(function (playlistId) {
+  promise = promise.then(function (playlist) {
+    playlistUrl = playlist.external_urls.spotify
+
+    let playlistId = playlist.id
+
     let promise = updatePlaylist(playlistId, matchingTracks)
     return promise
   })
 
-  promise.then(console.log.bind(this, 'done'))
+  promise = promise.then(function () {
+    return playlistUrl
+  })
+
+  return promise
+}
+
+mdc.autoInit()
+
+let params = getHashParams()
+accessToken = params.access_token
+
+let filters = document.getElementById('filter-fieldset')
+let loginButton = document.getElementById('login-button')
+if (accessToken) {
+  let filterForm = document.getElementById('filter-form')
+  filterForm.addEventListener('submit', function (event) {
+    event.preventDefault()
+
+    let elements = event.target.elements
+
+    let genreQuery = elements['filter-genre-input'].value
+    let yearQuery = elements['filter-year-input'].value
+
+    let promise = generate(genreQuery, yearQuery)
+    promise.then(function (playlistUrl) {
+      elements['mood-result-message'].textContent = 'Go listen to it here: '
+
+      elements['mood-result-link'].href = playlistUrl
+      elements['mood-result-link'].textContent = playlistUrl
+    })
+  })
+
+  loginButton.disabled = true
 } else {
-  login()
+  loginButton.addEventListener('click', login)
+
+  filters.disabled = true
 }

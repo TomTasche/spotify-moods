@@ -2,10 +2,61 @@
 <html>
 
 <head>
+  <title>
+    Spotify Moods
+  </title>
+
+  <link rel="stylesheet" href="material-components-web.min.css">
 </head>
 
-<body>
+<body class="mdc-typography">
+  <button type="button" id="login-button" class="mdc-button mdc-button--raised mdc-button--primary">
+    Login to Spotify
+  </button>
+
+  <br />
+
+  <br />
+
+  <form action="#" id="filter-form">
+    <fieldset id="filter-fieldset">
+      <h2 class="mdc-typography--display2">
+        What's your mood like?
+      </h2>
+
+      <div>
+        <div class="mdc-textfield" data-mdc-auto-init="MDCTextfield">
+          <input type="text" id="filter-genre-input" class="mdc-textfield__input">
+          <label for="filter-genre-input" class="mdc-textfield__label">
+            Genre? (e.g. House)
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <div class="mdc-textfield" data-mdc-auto-init="MDCTextfield">
+          <input type="number" id="filter-year-input" class="mdc-textfield__input">
+          <label for="filter-genre-input" class="mdc-textfield__label">
+            Year of release? (e.g. 2010)
+          </label>
+        </div>
+      </div>
+
+      <br />
+
+      <button type="submit" class="mdc-button mdc-button--raised mdc-button--primary mdc-ripple-surface" data-mdc-auto-init="MDCRipple">
+        Let me listen to my mood!
+      </button>
+
+      <p class="mdc-typography--headline">
+        <span id="mood-result-message"></span>
+        <a id="mood-result-link"></a>
+      </p>
+    </fieldset>
+  </form>
+
   <script src="jquery-3.2.0.min.js"></script>
+  <script src="material-components-web.min.js"></script>
   <script src="index.js"></script>
 </body>
 
