@@ -1,9 +1,13 @@
+import * as mdc from './material-components-web.min.js'
+
+import SpotifyBridge from './spotify-bridge.js'
+
 function generate (genreQuery, dateQuery) {
   let tracksForArtist = {}
   let tracksForAlbum = {}
 
   var promise = SpotifyBridge.fetchUserId()
-  promise = promise.then(SpotifyBridge.fetchTracks)
+  promise = promise.then(SpotifyBridge.fetchTracks.bind(this, null, null, null))
   promise = promise.then(function (tracks) {
     for (var i = 0; i < tracks.length; i++) {
       let track = tracks[i].track
